@@ -1,10 +1,9 @@
-ARG SOLANA_REVISION=v1.9.12-testnet-with_trx_cap
+ARG SOLANA_REVISION=v1.16.14
 ARG NEON_EVM_COMMIT=latest
 
-FROM neonlabsorg/solana:${SOLANA_REVISION} AS solana
+FROM solanalabs/solana:${SOLANA_REVISION} AS solana
 FROM neonlabsorg/evm_loader:${NEON_EVM_COMMIT} AS spl
-
-FROM rust as builder
+FROM solanalabs/rust:1.69.0 AS builder
 RUN apt update && apt install -y libudev-dev
 COPY ./src /usr/src/faucet/src
 COPY ./rust-web3 /usr/src/faucet/rust-web3
@@ -25,11 +24,11 @@ ADD faucet.conf /
 COPY --from=builder /usr/src/faucet/target/release/faucet /opt/faucet/
 RUN ln -s /opt/faucet/faucet /usr/local/bin/
 
-COPY --from=solana /opt/solana/bin/solana \
-		/opt/solana/bin/solana-faucet \
-		/opt/solana/bin/solana-keygen \
-		/opt/solana/bin/solana-validator \
-		/opt/solana/bin/solana-genesis \
+COPY --from=solana /usr/bin/solana \
+		/usr/bin/solana-faucet \
+		/usr/bin/solana-keygen \
+		/usr/bin/solana-validator \
+		/usr/bin/solana-genesis \
 		/usr/local/bin/
 COPY --from=spl /opt/spl-token \
 		/opt/neon-cli \
@@ -37,7 +36,7 @@ COPY --from=spl /opt/spl-token \
 		/opt/evm_loader-keypair.json \
 		/spl/bin/
 
-COPY --from=spl /opt/contracts/ci-tokens/owner-keypair.json /opt/faucet
+# COPY --from=spl /opt/contracts/ci-tokens/owner-keypair.json /opt/faucet
 
 COPY --from=spl /opt/spl-token \
 		/usr/local/bin/
