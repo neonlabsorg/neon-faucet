@@ -1,7 +1,6 @@
 ARG NEON_EVM_COMMIT=latest
 
 FROM neonlabsorg/evm_loader:${NEON_EVM_COMMIT} AS spl
-
 FROM solanalabs/rust:1.69.0 AS builder
 RUN apt update && apt install -y libudev-dev
 COPY ./src /usr/src/faucet/src
@@ -24,17 +23,11 @@ ADD faucet.conf /opt/faucet/
 COPY --from=builder /usr/src/faucet/target/release/faucet /opt/faucet/
 RUN ln -s /opt/faucet/faucet /usr/local/bin/
 
-COPY --from=spl /opt/solana/bin/solana \
-		/opt/solana/bin/solana-faucet \
-		/opt/solana/bin/solana-keygen \
-		/opt/solana/bin/solana-validator \
-		/opt/solana/bin/solana-genesis \
-		/usr/local/bin/
-COPY --from=spl /opt/spl-token \
-		/opt/neon-cli \
-		/opt/create-test-accounts.sh \
-		/opt/evm_loader-keypair.json \
-		/spl/bin/
+COPY --from=solana /usr/bin/solana \
+		/usr/bin/solana-faucet \
+		/usr/bin/solana-keygen \
+		/usr/bin/solana-validator \
+		/usr/bin/solana-genesis \
 
 COPY --from=spl /opt/spl-token \
 		/usr/local/bin/
