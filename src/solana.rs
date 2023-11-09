@@ -61,7 +61,8 @@ pub async fn deposit_token(
         &token_mint_id,
     );
 
-    let ether_pubkey = ether_address_to_balance_pubkey(&evm_loader_id, &ether_address);
+    let ether_balance_pubkey = ether_address_to_balance_pubkey(&evm_loader_id, &ether_address);
+    let ether_contract_pubkey = ether_address_to_contract_pubkey(&evm_loader_id, &ether_address);
 
     let id = id.to_owned();
     tokio::task::spawn_blocking(move || -> Result<()> {
@@ -80,7 +81,7 @@ pub async fn deposit_token(
                 &id,
                 spl_token::id(),
                 signer_token_pubkey,
-                ether_pubkey,
+                ether_balance_pubkey,
                 signer_pubkey,
                 amount,
             ),
@@ -91,7 +92,8 @@ pub async fn deposit_token(
                 token_mint_id,
                 signer_token_pubkey,
                 evm_pool_pubkey,
-                ether_pubkey,
+                ether_balance_pubkey,
+                ether_contract_pubkey,
                 evm_loader_id,
                 spl_token::id(),
                 signer_pubkey,
@@ -130,6 +132,14 @@ fn ether_address_to_balance_pubkey(program_id: &Pubkey, address: &ethereum::Addr
         &[config::solana_account_seed_version()],
         address.as_bytes(),
         &chain_id_bytes,
+    ];
+    Pubkey::find_program_address(seeds, program_id).0
+}
+
+fn ether_address_to_contract_pubkey(program_id: &Pubkey, address: &ethereum::Address) -> Pubkey {
+    let seeds: &[&[u8]] = &[
+        &[config::solana_account_seed_version()],
+        address.as_bytes(),
     ];
     Pubkey::find_program_address(seeds, program_id).0
 }
@@ -183,6 +193,7 @@ fn deposit_instruction(
     source_pubkey: Pubkey,
     pool_pubkey: Pubkey,
     ether_balance_pubkey: Pubkey,
+    ether_contract_pubkey: Pubkey,
     evm_loader_id: Pubkey,
     spl_token_id: Pubkey,
     signer_pubkey: Pubkey,
@@ -205,6 +216,7 @@ fn deposit_instruction(
             AccountMeta::new(source_pubkey, false),
             AccountMeta::new(pool_pubkey, false),
             AccountMeta::new(ether_balance_pubkey, false),
+            AccountMeta::new(ether_contract_pubkey, false),
             AccountMeta::new_readonly(spl_token_id, false),
             AccountMeta::new(signer_pubkey, true),
             AccountMeta::new_readonly(system_program::id(), false),
