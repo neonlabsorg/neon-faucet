@@ -207,7 +207,7 @@ fn deposit_instruction(
     Instruction::new_with_bincode(
         evm_loader_id,
         &(
-            0x27_u8,
+            0x31_u8,
             ether_address.as_fixed_bytes(),
             chain_id.to_le_bytes(),
         ),
