@@ -43,14 +43,14 @@ jobs:
           docker push neonlabsorg/faucet:latest
 
       - name: publish develop image
-        if: github.ref_type == 'branch' && github.ref_name != 'develop'
+        if: github.head_ref != ''
         run: |
           docker push neonlabsorg/faucet:${GITHUB_SHA}
           docker tag neonlabsorg/faucet:${GITHUB_SHA} neonlabsorg/faucet:${GITHUB_HEAD_REF}
           docker push neonlabsorg/faucet:${GITHUB_HEAD_REF}
 
       - name: publish tag image
-        if: github.ref_type == 'tag'
+        if: github.ref_name != 'develop' && github.head_ref == ''
         run: |
           docker push neonlabsorg/faucet:${GITHUB_SHA}
           docker tag neonlabsorg/faucet:${GITHUB_SHA} neonlabsorg/faucet:${GITHUB_REF_NAME}
