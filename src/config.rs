@@ -8,10 +8,10 @@ use std::str::FromStr as _;
 use std::sync::RwLock;
 
 use serde::{Deserialize, Serialize};
+use solana_client::nonblocking::rpc_client::RpcClient;
 
 use tracing::{error, warn};
 
-use solana_client::rpc_client::RpcClient;
 use solana_sdk::account_utils::StateMut;
 use solana_sdk::bpf_loader_upgradeable::{self, UpgradeableLoaderState};
 use solana_sdk::commitment_config::CommitmentConfig;
@@ -793,12 +793,10 @@ fn test_trim_first_and_last_chars() {
 
 /// Reads NEON parameters from the EVM Loader account.
 pub async fn load_neon_params() -> Result<()> {
-    let params = tokio::task::spawn_blocking(move || -> Result<HashMap<String, String>> {
-        let client = RpcClient::new_with_commitment(solana_url(), solana_commitment());
-        read_neon_parameters_from_account(client)
-    })
-    .await
-    .expect("Solana does not respond")?;
+    let client = RpcClient::new_with_commitment(solana_url(), solana_commitment());
+    let params = read_neon_parameters_from_account(client)
+        .await
+        .expect("Solana does not respond");
 
     for (param_name, val) in &params {
         match param_name.as_ref() {
@@ -814,11 +812,11 @@ pub async fn load_neon_params() -> Result<()> {
     Ok(())
 }
 
-fn read_neon_parameters_from_account(client: RpcClient) -> Result<HashMap<String, String>> {
+async fn read_neon_parameters_from_account(client: RpcClient) -> Result<HashMap<String, String>> {
     let evm_loader_id = Pubkey::from_str(&solana_evm_loader())
         .map_err(|_| Error::InvalidPubkey(solana_evm_loader()))?;
 
-    let account = client.get_account(&evm_loader_id).map_err(|e| {
+    let account = client.get_account(&evm_loader_id).await.map_err(|e| {
         error!("Failed get_account: {:?}", e);
         Error::AccountNotFound(evm_loader_id)
     })?;
@@ -832,6 +830,7 @@ fn read_neon_parameters_from_account(client: RpcClient) -> Result<HashMap<String
         {
             let programdata_account = client
                 .get_account(&programdata_address)
+                .await
                 .map_err(|_| Error::AssociatedPdaNotFound(programdata_address, evm_loader_id))?;
 
             if let Ok(UpgradeableLoaderState::ProgramData { .. }) = programdata_account.state() {

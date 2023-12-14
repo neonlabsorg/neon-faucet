@@ -1,6 +1,7 @@
 //! Faucet NEON token module.
 
 use eyre::{eyre, Result};
+use solana_client::nonblocking::rpc_client::RpcClient;
 use tracing::info;
 
 use crate::{config, ethereum, id::ReqId, solana};
@@ -65,9 +66,6 @@ pub async fn airdrop(id: &ReqId, params: Airdrop) -> Result<()> {
 /// Checks existence and balance of the operator's token account.
 async fn check_token_account(id: &ReqId) -> Result<()> {
     use eyre::WrapErr as _;
-    use solana_account_decoder::parse_token::UiTokenAmount;
-    use solana_client::client_error::Result as ClientResult;
-    use solana_client::rpc_client::RpcClient;
     use solana_sdk::pubkey::Pubkey;
     use solana_sdk::signature::Signer as _;
     use std::str::FromStr as _;
@@ -89,12 +87,10 @@ async fn check_token_account(id: &ReqId) -> Result<()> {
     );
 
     info!("{} Token account: {}", id, operator_token_pubkey);
-    let r = tokio::task::spawn_blocking(move || -> ClientResult<UiTokenAmount> {
-        let client =
-            RpcClient::new_with_commitment(config::solana_url(), config::solana_commitment());
-        client.get_token_account_balance(&operator_token_pubkey)
-    })
-    .await??;
+    let client = RpcClient::new_with_commitment(config::solana_url(), config::solana_commitment());
+    let r = client
+        .get_token_account_balance(&operator_token_pubkey)
+        .await?;
 
     let amount = r.ui_amount.unwrap_or_default();
     if amount <= f64::default() {
