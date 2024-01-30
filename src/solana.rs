@@ -3,9 +3,9 @@
 use std::str::FromStr as _;
 
 use eyre::{eyre, Result, WrapErr as _};
+use solana_client::nonblocking::rpc_client::RpcClient;
 use tracing::debug;
 
-use solana_client::rpc_client::RpcClient;
 use solana_sdk::instruction::{AccountMeta, Instruction};
 use solana_sdk::message::Message;
 use solana_sdk::pubkey::Pubkey;
@@ -65,60 +65,56 @@ pub async fn deposit_token(
     let ether_contract_pubkey = ether_address_to_contract_pubkey(&evm_loader_id, &ether_address);
 
     let id = id.to_owned();
-    tokio::task::spawn_blocking(move || -> Result<()> {
-        let client =
-            RpcClient::new_with_commitment(config::solana_url(), config::solana_commitment());
+    let client = RpcClient::new_with_commitment(config::solana_url(), config::solana_commitment());
 
-        let amount = if in_fractions {
-            amount
-        } else {
-            convert_whole_to_fractions(amount)?
-        };
+    let amount = if in_fractions {
+        amount
+    } else {
+        convert_whole_to_fractions(amount)?
+    };
 
-        let instructions = vec![
-            spl_memo(&id, &signer_pubkey),
-            spl_approve_instruction(
-                &id,
-                spl_token::id(),
-                signer_token_pubkey,
-                ether_balance_pubkey,
-                signer_pubkey,
-                amount,
-            ),
-            deposit_instruction(
-                &id,
-                config::solana_chain_id(),
-                ether_address,
-                token_mint_id,
-                signer_token_pubkey,
-                evm_pool_pubkey,
-                ether_balance_pubkey,
-                ether_contract_pubkey,
-                evm_loader_id,
-                spl_token::id(),
-                signer_pubkey,
-            ),
-        ];
+    let instructions = vec![
+        spl_memo(&id, &signer_pubkey),
+        spl_approve_instruction(
+            &id,
+            spl_token::id(),
+            signer_token_pubkey,
+            ether_balance_pubkey,
+            signer_pubkey,
+            amount,
+        ),
+        deposit_instruction(
+            &id,
+            config::solana_chain_id(),
+            ether_address,
+            token_mint_id,
+            signer_token_pubkey,
+            evm_pool_pubkey,
+            ether_balance_pubkey,
+            ether_contract_pubkey,
+            evm_loader_id,
+            spl_token::id(),
+            signer_pubkey,
+        ),
+    ];
 
-        debug!(
-            "{} Creating message with {} instructions...",
-            id,
-            instructions.len()
-        );
-        let message = Message::new(&instructions, Some(&signer_pubkey));
-        debug!("{} Creating transaction...", id);
-        let mut tx = Transaction::new_unsigned(message);
-        debug!("{} Getting latest blockhash...", id);
-        let blockhash = client.get_latest_blockhash()?;
-        debug!("{} Signing transaction...", id);
-        tx.try_sign(&[&signer], blockhash)?;
-        debug!("{} Sending and confirming transaction...", id);
-        client.send_and_confirm_transaction(&tx)?;
-        debug!("{} Transaction is confirmed", id);
+    debug!(
+        "{} Creating message with {} instructions...",
+        id,
+        instructions.len()
+    );
+    let message = Message::new(&instructions, Some(&signer_pubkey));
+    debug!("{} Creating transaction...", id);
+    let mut tx = Transaction::new_unsigned(message);
+    debug!("{} Getting latest blockhash...", id);
+    let blockhash = client.get_latest_blockhash().await?;
+    debug!("{} Signing transaction...", id);
+    tx.try_sign(&[&signer], blockhash)?;
+    debug!("{} Sending and confirming transaction...", id);
+    client.send_and_confirm_transaction(&tx).await?;
+    debug!("{} Transaction is confirmed", id);
 
-        Ok(())
-    })
-    .await?
+    Ok(())
 }
 
 /// Maps an Ethereum address into a Solana address.
@@ -137,10 +133,7 @@ fn ether_address_to_balance_pubkey(program_id: &Pubkey, address: &ethereum::Addr
 }
 
 fn ether_address_to_contract_pubkey(program_id: &Pubkey, address: &ethereum::Address) -> Pubkey {
-    let seeds: &[&[u8]] = &[
-        &[config::solana_account_seed_version()],
-        address.as_bytes(),
-    ];
+    let seeds: &[&[u8]] = &[&[config::solana_account_seed_version()], address.as_bytes()];
     Pubkey::find_program_address(seeds, program_id).0
 }
 
